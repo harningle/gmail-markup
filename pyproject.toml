@@ -2,6 +2,8 @@
 name = "gmail-markup"
 version = "0.1.0"
 requires-python = ">=3.15"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "httpx>=0.28.1",
     "mcp>=2.3.0",
