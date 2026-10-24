@@ -142,13 +142,25 @@ def _reference(reservation_number: Optional[str], key: str) -> tuple[str, list[s
 
 
 def _normalise(text: str) -> str:
-    """Lowercase ASCII letters and digits only, so wording noise maps to the same key
+    """Letters, marks and digits of any script, casefolded, so wording noise maps to the same key
 
-    Case, punctuation, spacing and accents are dropped: 'Geneve, Gare routiere' with or without
-    its accents and 'GENEVE gare-routiere' all give 'genevegareroutiere'.
+    Case, punctuation and spacing are dropped, and full-width forms fold to ASCII: 'Geneve, Gare
+    routiere' and 'GENEVE gare-routiere' both give 'genevegareroutiere'. Accents are dropped from
+    Latin letters only, since an LLM may write the unaccented spelling; marks in other scripts
+    change the letter (e.g. Japanese voicing marks), so Chinese, Japanese and Korean names keep
+    every character.
     """
-    decomposed = unicodedata.normalize('NFKD', text.casefold())
-    return ''.join(c for c in decomposed if c.isascii() and c.isalnum())
+    kept = []
+    after_latin = False
+    for c in unicodedata.normalize('NFKD', text.casefold()):
+        if unicodedata.combining(c):
+            if after_latin:
+                continue  # an accent on a Latin letter
+        else:
+            after_latin = c.isascii()
+        kept.append(c)
+    recomposed = unicodedata.normalize('NFC', ''.join(kept))
+    return ''.join(c for c in recomposed if unicodedata.category(c)[0] in 'LMN')
 
 
 def _legs_key(legs: list[Leg]) -> str:

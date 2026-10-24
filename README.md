@@ -115,7 +115,7 @@ An email from yourself titled e.g. "Flight reservation ABC123" arrives, and the 
 
 `add_flight`, `add_train`, `add_bus`, `add_hotel`, `add_event`, defined in `src/gmail_markup/server.py`. Inputs are typed pydantic models (`src/gmail_markup/markup.py`), so mistakes that would make Gmail silently ignore the markup are rejected before anything is sent: blank text, times without a UTC offset, arrival before departure, malformed IATA codes. Flights, trains and buses produce one reservation per passenger per leg, as Google expects. Sending the same reservation number again updates the existing calendar event.
 
-Only flights are sure to come with a booking reference. For the other types the reference is optional: without one, the tool generates `NOREF-` plus 8 hex digits from the booking's identity, so re-adding the same booking yields the same reference and updates the event instead of duplicating it. Names in the identity are reduced to lowercase ASCII letters and digits, so case, punctuation and accents don't matter:
+Only flights are sure to come with a booking reference. For the other types the reference is optional: without one, the tool generates `NOREF-` plus 8 hex digits from the booking's identity, so re-adding the same booking yields the same reference and updates the event instead of duplicating it. Names in the identity keep the letters and digits of any script, so Chinese, Japanese and Korean names work, while case, punctuation, spacing and accents on Latin letters don't matter:
 
 | Tool | Reference derived from |
 | --- | --- |

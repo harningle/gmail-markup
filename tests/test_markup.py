@@ -300,7 +300,7 @@ def test_hotel_without_reference_ignores_times_and_wording_noise():
     )
     # Case, punctuation and accents are not part of the identity
     assert stay == hotel_reference(
-        'Hôtel-TEST', '2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00'
+        'H\u00f4tel-TEST', '2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00'
     )
     assert stay != hotel_reference(
         'Hotel Test', '2026-11-02T15:00:00+01:00', '2026-11-05T11:00:00+01:00'
@@ -364,3 +364,40 @@ async def test_blank_tool_argument_reaches_model(apps_script, field):
     assert result.is_error
     assert field in result.content[0].text
     assert apps_script['requests'] == []
+
+
+@pytest.mark.parametrize(('text', 'expected'), [
+    ('Gen\u00e8ve, Gare routi\u00e8re', 'genevegareroutiere'),  # Latin accents dropped
+    ('GENEVE gare-routiere', 'genevegareroutiere'),
+    ('\uff28\uff2f\uff34\uff25\uff2c', 'hotel'),  # full-width HOTEL folds to ASCII
+    ('Stra\u00dfe', 'strasse'),
+    ('\u6771\u4eac\u30db\u30c6\u30eb', '\u6771\u4eac\u30db\u30c6\u30eb'),  # Japanese: Tokyo Hotel
+    ('\uc11c\uc6b8 \ud638\ud154', '\uc11c\uc6b8\ud638\ud154'),  # Korean: Seoul Hotel
+    ('\u5317\u4eac\u996d\u5e97\u3002', '\u5317\u4eac\u996d\u5e97'),  # Chinese: Beijing Hotel.
+    ('\u0939\u094b\u091f\u0932', '\u0939\u094b\u091f\u0932'),  # Hindi: vowel sign kept
+])
+def test_normalise_keeps_every_script(text, expected):
+    assert markup._normalise(text) == expected
+
+
+def test_normalise_keeps_non_latin_marks():
+    # Japanese garasu (glass) and karasu (crow) differ only by a voicing mark
+    assert markup._normalise('\u30ac\u30e9\u30b9') != markup._normalise('\u30ab\u30e9\u30b9')
+
+
+def test_non_latin_hotels_with_same_dates_do_not_collide():
+    dates = ('2026-11-01T15:00:00+09:00', '2026-11-05T11:00:00+09:00')
+    names = [
+        '\u6771\u4eac\u30db\u30c6\u30eb',  # Japanese: Tokyo Hotel
+        '\u5927\u962a\u30db\u30c6\u30eb',  # Japanese: Osaka Hotel
+        '\uc11c\uc6b8\ud638\ud154',  # Korean: Seoul Hotel
+        '\u5317\u4eac\u996d\u5e97',  # Chinese: Beijing Hotel
+        '\u4e0a\u6d77\u996d\u5e97',  # Chinese: Shanghai Hotel
+    ]
+    assert len({hotel_reference(name, *dates, postal_code='100-0001') for name in names}) == 5
+
+
+def test_non_latin_events_starting_together_do_not_collide():
+    # Chinese: concert A and concert B
+    assert event_reference('\u97f3\u4e50\u4f1a A') != event_reference('\u97f3\u4e50\u4f1a B')
+    assert event_reference('\u97f3\u4e50\u4f1a') != event_reference('\u8bdd\u5267')  # concert, play
