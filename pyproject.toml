@@ -1,0 +1,27 @@
+[project]
+name = "gmail-markup"
+version = "0.1.0"
+requires-python = ">=3.15"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp>=2.3.0",
+]
+
+[project.scripts]
+gmail-markup-server = "gmail_markup.server:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.lint]
+ignore = ["UP045"]  # prefer Optional[X] over X | None

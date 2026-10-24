@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <script type="application/ld+json">
+    {
+      "@context": "http://schema.org",
+      "@type": "EventReservation",
+      "reservationNumber": "EVT12345",
+      "reservationStatus": "http://schema.org/Confirmed",
+      "underName": {
+        "@type": "Person",
+        "name": "Jane Doe"
+      },
+      "reservationFor": {
+        "@type": "Event",
+        "name": "Example Concert",
+        "startDate": "2026-11-03T20:00:00+01:00",
+        "endDate": "2026-11-03T22:30:00+01:00",
+        "location": {
+          "@type": "Place",
+          "name": "Example Hall",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Rue de l'Exemple 1",
+            "addressLocality": "Geneva",
+            "addressRegion": "Geneva",
+            "postalCode": "1201",
+            "addressCountry": "Switzerland"
+          }
+        }
+      },
+      "venueSeat": "A1",
+      "venueSection": "1",
+      "ticketToken": "qrCode:EVT12345",
+      "ticketNumber": "EVT12345"
+    }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <script type="application/ld+json">
+      {
+        "@context": "http://schema.org",
+        "@type": "LodgingReservation",
+        "reservationNumber": "HTL00004",
+        "reservationStatus": "http://schema.org/Confirmed",
+        "underName": {
+          "@type": "Person",
+          "name": "Jane Doe"
+        },
+        "reservationFor": {
+          "@type": "LodgingBusiness",
+          "name": "Example Spa Hotel",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Example Street 1",
+            "addressLocality": "Example Town",
+            "addressRegion": "Valais",
+            "postalCode": "3900",
+            "addressCountry": "Switzerland"
+          },
+          "telephone": "+41 00 000 00 00"
+        },
+        "checkinDate": "2026-11-07T14:30:00+01:00",
+        "checkoutDate": "2026-11-08T10:30:00+01:00"
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+  <script type="application/ld+json">
+    [
+      {
+        "@context": "http://schema.org",
+        "@type": "BusReservation",
+        "reservationNumber": "BUS12345",
+        "reservationStatus": "http://schema.org/ReservationConfirmed",
+        "underName": {
+          "@type": "Person",
+          "name": "Jane Doe"
+        },
+        "reservationFor": {
+          "@type": "BusTrip",
+          "busCompany": {
+            "@type": "Organization",
+            "name": "Example Coaches"
+          },
+          "departureBusStop": {
+            "@type": "BusStop",
+            "name": "Geneva, Bus Station"
+          },
+          "departureTime": "2026-11-06T08:40:00+01:00",
+          "arrivalBusStop": {
+            "@type": "BusStop",
+            "name": "Chamonix, Bus Station"
+          },
+          "arrivalTime": "2026-11-06T10:10:00+01:00"
+        },
+        "reservedTicket": {
+          "@type": "Ticket",
+          "underName": "Jane Doe",
+          "ticketNumber": "BUS12345",
+          "additionalTicketText": "Please arrive at the bus station 15 minutes before departure and bring a valid ID."
+        },
+        "totalPrice": "17.95",
+        "priceCurrency": "CHF"
+      }
+    ]
+  </script>
+  </body>
+</html>

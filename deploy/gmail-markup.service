@@ -1,0 +1,15 @@
+[Unit]
+Description=gmail-markup MCP server
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/gmail-markup
+EnvironmentFile=/home/ubuntu/gmail-markup/.env
+Environment=UV_PROJECT_ENVIRONMENT=/home/ubuntu/.virtualenvs/gmail-markup
+ExecStart=/home/ubuntu/.local/bin/uv run --frozen --no-dev gmail-markup-server
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
