@@ -52,7 +52,7 @@ async def send(email: markup.Email) -> str:
 
 @server.tool()
 async def add_flight(
-    reservation_number: str,
+    reservation_number: markup.Text,
     names: markup.Names,
     legs: Annotated[list[markup.FlightLeg], Field(min_length=1)],
 ) -> str:
@@ -67,7 +67,7 @@ async def add_flight(
 async def add_train(
     names: markup.Names,
     legs: Annotated[list[markup.TrainLeg], Field(min_length=1)],
-    reservation_number: Optional[str] = None,
+    reservation_number: Optional[markup.Text] = None,
 ) -> str:
     """Add a train booking to Google Calendar
 
@@ -83,7 +83,7 @@ async def add_train(
 async def add_bus(
     names: markup.Names,
     legs: Annotated[list[markup.BusLeg], Field(min_length=1)],
-    reservation_number: Optional[str] = None,
+    reservation_number: Optional[markup.Text] = None,
 ) -> str:
     """Add a bus or coach booking to Google Calendar
 
@@ -97,13 +97,13 @@ async def add_bus(
 
 @server.tool()
 async def add_hotel(
-    guest_name: str,
-    hotel_name: str,
+    guest_name: markup.Text,
+    hotel_name: markup.Text,
     address: markup.Address,
     checkin: markup.LocalTime,
     checkout: markup.LocalTime,
-    telephone: Optional[str] = None,
-    reservation_number: Optional[str] = None,
+    telephone: Optional[markup.Text] = None,
+    reservation_number: Optional[markup.Text] = None,
 ) -> str:
     """Add a hotel or other accommodation booking to Google Calendar
 
@@ -124,13 +124,13 @@ async def add_hotel(
 
 @server.tool()
 async def add_event(
-    attendee_name: str,
-    event_name: str,
+    attendee_name: markup.Text,
+    event_name: markup.Text,
     start: markup.LocalTime,
-    venue_name: str,
+    venue_name: markup.Text,
     venue_address: markup.Address,
     end: Optional[markup.LocalTime] = None,
-    reservation_number: Optional[str] = None,
+    reservation_number: Optional[markup.Text] = None,
 ) -> str:
     """Add a ticketed event (concert, match, show, ...) to Google Calendar
 

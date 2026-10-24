@@ -7,15 +7,18 @@ https://developers.google.com/workspace/gmail/markup/reference
 import hashlib
 import html
 import json
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Optional
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints, model_validator
 
 CONFIRMED = 'http://schema.org/ReservationConfirmed'
 
-Names = Annotated[list[str], Field(min_length=1, description='Full name of each traveller')]
+# Required text must have content: '' or '  ' would render as blank markup Gmail ignores
+Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Names = Annotated[list[Text], Field(min_length=1, description='Full name of each traveller')]
 LocalTime = Annotated[
     AwareDatetime,
     Field(description='Local time with its UTC offset, e.g. 2026-11-01T09:05:00+01:00'),
@@ -23,11 +26,11 @@ LocalTime = Annotated[
 
 
 class Address(BaseModel):
-    street_address: str
-    locality: str = Field(description='City or town')
-    region: Optional[str] = None
-    postal_code: str
-    country: str
+    street_address: Text
+    locality: Text = Field(description='City or town')
+    region: Optional[Text] = None
+    postal_code: Text
+    country: Text
 
 
 class Leg(BaseModel):
@@ -42,7 +45,7 @@ class Leg(BaseModel):
 
 
 class FlightLeg(Leg):
-    airline_name: str
+    airline_name: Text
     airline_code: str = Field(
         pattern=r'^[A-Z0-9]{2,3}$',
         description=(
@@ -53,28 +56,28 @@ class FlightLeg(Leg):
     flight_number: str = Field(
         pattern=r'^[0-9]{1,4}[A-Z]?$', description='Without the airline code, e.g. 7024'
     )
-    departure_airport_name: str
+    departure_airport_name: Text
     departure_airport_iata: str = Field(pattern=r'^[A-Z]{3}$')
-    departure_terminal: Optional[str] = None
-    arrival_airport_name: str
+    departure_terminal: Optional[Text] = None
+    arrival_airport_name: Text
     arrival_airport_iata: str = Field(pattern=r'^[A-Z]{3}$')
-    arrival_terminal: Optional[str] = None
+    arrival_terminal: Optional[Text] = None
 
 
 class TrainLeg(Leg):
-    train_company: Optional[str] = None
-    train_number: Optional[str] = None
-    departure_station: str
-    departure_platform: Optional[str] = None
-    arrival_station: str
-    arrival_platform: Optional[str] = None
+    train_company: Optional[Text] = None
+    train_number: Optional[Text] = None
+    departure_station: Text
+    departure_platform: Optional[Text] = None
+    arrival_station: Text
+    arrival_platform: Optional[Text] = None
 
 
 class BusLeg(Leg):
-    bus_company: str
-    bus_number: Optional[str] = None
-    departure_stop: str
-    arrival_stop: str
+    bus_company: Text
+    bus_number: Optional[Text] = None
+    departure_stop: Text
+    arrival_stop: Text
 
 
 @dataclass(frozen=True)
@@ -138,8 +141,22 @@ def _reference(reservation_number: Optional[str], key: str) -> tuple[str, list[s
     return generated, [f'No booking reference in the booking; generated {generated}']
 
 
+def _normalise(text: str) -> str:
+    """Lowercase ASCII letters and digits only, so wording noise maps to the same key
+
+    Case, punctuation, spacing and accents are dropped: 'Geneve, Gare routiere' with or without
+    its accents and 'GENEVE gare-routiere' all give 'genevegareroutiere'.
+    """
+    decomposed = unicodedata.normalize('NFKD', text.casefold())
+    return ''.join(c for c in decomposed if c.isascii() and c.isalnum())
+
+
 def _legs_key(legs: list[Leg]) -> str:
-    """Times only: the LLM may word stop, station and company names differently between runs"""
+    """Times only: the LLM may word stop, station and company names differently between runs
+
+    Times alone are enough here: two different trips with identical departure and arrival times
+    to the minute cannot both be taken, so a match means the same trip.
+    """
     return '|'.join(
         f'{leg.departure_time.astimezone(UTC).isoformat()}>'
         f'{leg.arrival_time.astimezone(UTC).isoformat()}'
@@ -250,9 +267,13 @@ def hotel_email(
 ) -> Email:
     if checkout <= checkin:
         raise ValueError('checkout must be after checkin')
-    # Dates only: check-in and check-out times are often missing from the booking and guessed
+    # Dates, not times: check-in and check-out times are often missing and guessed. Two stays can
+    # share dates, so the postcode and name tell them apart; a reworded name then duplicates the
+    # event, which is visible, rather than overwriting another booking, which is not
     reservation_number, notes = _reference(
-        reservation_number, f'{checkin.date().isoformat()}>{checkout.date().isoformat()}'
+        reservation_number,
+        f'{checkin.date().isoformat()}>{checkout.date().isoformat()}'
+        f'|{_normalise(address.postal_code)}|{_normalise(hotel_name)}',
     )
     item = _reservation(
         'LodgingReservation',
@@ -282,8 +303,11 @@ def event_email(
 ) -> Email:
     if end is not None and end <= start:
         raise ValueError('end must be after start')
-    # Start only: tickets often have no end time, so it may be given on one run and not the next
-    reservation_number, notes = _reference(reservation_number, start.astimezone(UTC).isoformat())
+    # Start, not end: tickets often have no end time, so it may be given on one run and not the
+    # next. Two events can start together (e.g. screenings at a multiplex), so add the name
+    reservation_number, notes = _reference(
+        reservation_number, f'{start.astimezone(UTC).isoformat()}|{_normalise(event_name)}'
+    )
     item = _reservation(
         'EventReservation',
         reservation_number,

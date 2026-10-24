@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 
 import httpx
+import pydantic
 import pytest
 from mcp import Client
 from pydantic import ValidationError
@@ -282,29 +283,84 @@ def test_train_without_reference_ignores_station_wording():
     assert first.subject.startswith('Train reservation NOREF-')
 
 
-def test_hotel_without_reference_uses_dates_only():
-    def reference(checkin, checkout):
-        email = markup.hotel_email(
-            None, 'Jane Doe', 'Hotel Test', markup.Address(**ADDRESS),
-            datetime.fromisoformat(checkin), datetime.fromisoformat(checkout),
-        )
-        return email.items[0]['reservationNumber']
+def hotel_reference(hotel_name, checkin, checkout, postal_code='29005'):
+    email = markup.hotel_email(
+        None, 'Jane Doe', hotel_name, markup.Address(**{**ADDRESS, 'postal_code': postal_code}),
+        datetime.fromisoformat(checkin), datetime.fromisoformat(checkout),
+    )
+    return email.items[0]['reservationNumber']
 
-    stay = reference('2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00')
+
+def test_hotel_without_reference_ignores_times_and_wording_noise():
+    stay = hotel_reference('Hotel Test', '2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00')
     assert stay.startswith('NOREF-')
     # Guessed check-in/out times differ between runs: same stay, same reference
-    assert reference('2026-11-01T14:00:00+01:00', '2026-11-05T12:00:00+01:00') == stay
-    assert reference('2026-11-02T15:00:00+01:00', '2026-11-05T11:00:00+01:00') != stay
+    assert stay == hotel_reference(
+        'Hotel Test', '2026-11-01T14:00:00+01:00', '2026-11-05T12:00:00+01:00'
+    )
+    # Case, punctuation and accents are not part of the identity
+    assert stay == hotel_reference(
+        'Hôtel-TEST', '2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00'
+    )
+    assert stay != hotel_reference(
+        'Hotel Test', '2026-11-02T15:00:00+01:00', '2026-11-05T11:00:00+01:00'
+    )
+
+
+def test_hotels_with_same_dates_do_not_collide():
+    dates = ('2026-11-01T15:00:00+01:00', '2026-11-05T11:00:00+01:00')
+    references = {
+        hotel_reference('Hotel Test', *dates),
+        hotel_reference('Other Hotel', *dates),
+        hotel_reference('Hotel Test', *dates, postal_code='18010'),
+    }
+    assert len(references) == 3
+
+
+def event_reference(event_name, end=None):
+    email = markup.event_email(
+        None, 'Jane Doe', event_name, datetime.fromisoformat('2026-11-03T20:00:00+01:00'),
+        'Victoria Hall', markup.Address(**ADDRESS),
+        datetime.fromisoformat(end) if end else None,
+    )
+    return email.items[0]['reservationNumber']
 
 
 def test_event_without_reference_ignores_end():
-    def reference(end):
-        email = markup.event_email(
-            None, 'Jane Doe', 'Concert', datetime.fromisoformat('2026-11-03T20:00:00+01:00'),
-            'Victoria Hall', markup.Address(**ADDRESS),
-            datetime.fromisoformat(end) if end else None,
-        )
-        return email.items[0]['reservationNumber']
+    assert event_reference('Concert') == event_reference('Concert', '2026-11-03T22:30:00+01:00')
+    assert event_reference('Concert').startswith('NOREF-')
 
-    assert reference(None) == reference('2026-11-03T22:30:00+01:00')
-    assert reference(None).startswith('NOREF-')
+
+def test_events_starting_together_do_not_collide():
+    assert event_reference('Film A') != event_reference('Film B')
+
+
+@pytest.mark.parametrize('names', [[''], ['   '], ['Jane Doe', '']])
+def test_blank_names_rejected(names):
+    with pytest.raises(ValidationError):
+        pydantic.TypeAdapter(markup.Names).validate_python(names)
+
+
+def test_blank_required_field_rejected():
+    with pytest.raises(ValidationError, match='bus_company'):
+        markup.BusLeg(**{**BUS, 'bus_company': '  '})
+    with pytest.raises(ValidationError, match='street_address'):
+        markup.Address(**{**ADDRESS, 'street_address': ''})
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('field', ['hotel_name', 'reservation_number'])
+async def test_blank_tool_argument_reaches_model(apps_script, field):
+    args = {
+        'guest_name': 'Jane Doe',
+        'hotel_name': 'Hotel Test',
+        'address': ADDRESS,
+        'checkin': '2026-11-01T15:00:00+01:00',
+        'checkout': '2026-11-05T11:00:00+01:00',
+        field: ' ',
+    }
+    async with Client(server.server) as client:
+        result = await client.call_tool('add_hotel', args)
+    assert result.is_error
+    assert field in result.content[0].text
+    assert apps_script['requests'] == []
